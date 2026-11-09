@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import OSLog
 import SceneEngine
 import SceneIntegrations
 import SceneSwitcher
@@ -221,6 +222,7 @@ final class AppModel {
         lastReport = await engine.apply(request, planned: planned, selected: selected, replacing: replacing) { message in
             Task { @MainActor in self.progress = message }
         }
+        for result in lastReport?.results ?? [] { Self.followLog.log("applied \(result.id, privacy: .public): \(String(describing: result.outcome), privacy: .public)") }
         await refreshSystemState()
     }
 
@@ -254,25 +256,37 @@ final class AppModel {
 
     @ObservationIgnored private var appearanceObservation: NSKeyValueObservation?
     @ObservationIgnored private var followTask: Task<Void, Never>?
+    @ObservationIgnored private var followedDark: Bool?
 
     /// Watches macOS Light/Dark while Scene runs. Snapshot mode never applies, so it does not watch.
     func startFollowingAppearance() {
         guard appearanceObservation == nil, Snapshot.folder == nil else { return }
+        followedDark = systemIsDark
         appearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
             Task { @MainActor in self?.appearanceChanged() }
         }
     }
 
     private func appearanceChanged() {
+        // The observation also fires when the look stays the same, for example when System Settings broadcasts the
+        // appearance again after Scene changes the accent color.
+        let dark = systemIsDark
+        Self.followLog.log("appearance notification: dark=\(dark, privacy: .public), followed=\(String(describing: self.followedDark), privacy: .public), working=\(self.isWorking, privacy: .public)")
+        guard dark != followedDark else { return }
+        followedDark = dark
         followTask?.cancel()
         followTask = Task { @MainActor in
             // Wait until macOS has finished switching, and until Scene is idle.
             try? await Task.sleep(for: .seconds(1))
             while isWorking, !Task.isCancelled { try? await Task.sleep(for: .milliseconds(500)) }
-            guard !Task.isCancelled else { return }
-            await followAppearance()
+            guard !Task.isCancelled else { Self.followLog.log("follow superseded before applying"); return }
+            // An apply that has started runs to the end: cancelling it would stop apps halfway. A later switch waits for it.
+            await Task { @MainActor in await self.followAppearance() }.value
+            Self.followLog.log("follow finished")
         }
     }
+
+    static let followLog = Logger(subsystem: "com.insanearts.scene", category: "follow")
 
     /// Applies the current theme's other look when macOS shows the other appearance. Each apply takes the place of
     /// the history entry it follows, so Undo goes back to the theme before. A theme with one look never switches macOS back.
@@ -282,6 +296,7 @@ final class AppModel {
         if themes.isEmpty { await reload() }
         let themes = self.themes
         let steps = history.followSteps(systemIsDark: systemIsDark) { id in themes.first { $0.id == id }?.availableAppearances }
+        Self.followLog.log("following: dark=\(self.systemIsDark), steps=\(steps.count)")
         for step in steps {
             guard let theme = themes.first(where: { $0.id == step.entry.themeID }) else { continue }
             await quickApply(theme, mode: .system, apps: step.apps, replacing: step.entry.id)
