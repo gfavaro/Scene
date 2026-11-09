@@ -75,6 +75,7 @@ Last updated: 2026-09-30. Version 0.1.0, build 4 (`version.env`).
 
 ## Open decisions for the user
 
+- **Browser theming for light themes.** Dark themes can theme Helium and other Chromium browsers live through a managed policy. Light themes must choose between a live but two-tone look and an even look that needs a browser relaunch. See [browser-theming.md](browser-theming.md).
 - **Image rights.** 54 of the Omarchy themes' 72 backgrounds have an unknown license. 16 more are Unsplash (12) and Pexels (4) photos, and both sites' terms ban wallpaper apps. They need clearing, or replacing, before the app is distributed. Scene's own themes use none of them.
 - **Trademarks** (reported by the theme research on USPTO TSDR, not checked again here): LUMON is registered to Fifth Season, LLC, which produces Severance (reg. 8096416), and the Lumon theme shows the Lumon logo. VANTABLACK is registered to Surrey NanoSystems (reg. 4783953). OMARCHY is registered to 37signals (reg. 8250209); it is used only as a tag and in the credits. DRACULA is registered for color-scheme software (reg. 6306339), which matters if that palette is ever ported. None of the 50 new theme names has had a trademark search yet; the research suggests USPTO and EUIPO, classes 9 and 42, before the app ships.
 - **Generated backgrounds** have no copyright holder in the US, so anyone can reuse them. OpenAI's terms assign whatever rights it has in the output to the account holder and ban passing output off as human-made, so the credits say "Generated for Scene with GPT Image".
@@ -89,6 +90,7 @@ Last updated: 2026-09-30. Version 0.1.0, build 4 (`version.env`).
 
 ## Not built
 
+- Chromium browser theming (Helium, Chrome, Brave, Edge). Research and live tests are in [browser-theming.md](browser-theming.md); the tools are in `Scripts/browser-theming/`.
 - Distribution: Homebrew. No GitHub release is published yet, so Sparkle has no feed to read.
 - Tests for the app target. All tests are in SceneKit.
 - The other art-style themes in the skill's `ART.md` (Leaf Node, Faint Signal, Bubble Sort, and more). Generation stopped when the OpenAI account ran out of credits.
