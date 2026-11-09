@@ -254,23 +254,30 @@ final class AppModel {
 
     @ObservationIgnored private var appearanceObservation: NSKeyValueObservation?
     @ObservationIgnored private var followTask: Task<Void, Never>?
+    @ObservationIgnored private var followedDark: Bool?
 
     /// Watches macOS Light/Dark while Scene runs. Snapshot mode never applies, so it does not watch.
     func startFollowingAppearance() {
         guard appearanceObservation == nil, Snapshot.folder == nil else { return }
+        followedDark = systemIsDark
         appearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
             Task { @MainActor in self?.appearanceChanged() }
         }
     }
 
     private func appearanceChanged() {
+        // The observation also fires when the look stays the same, for example when Scene changes the icon style.
+        let dark = systemIsDark
+        guard dark != followedDark else { return }
+        followedDark = dark
         followTask?.cancel()
         followTask = Task { @MainActor in
             // Wait until macOS has finished switching, and until Scene is idle.
             try? await Task.sleep(for: .seconds(1))
             while isWorking, !Task.isCancelled { try? await Task.sleep(for: .milliseconds(500)) }
             guard !Task.isCancelled else { return }
-            await followAppearance()
+            // An apply that has started runs to the end: cancelling it would stop apps halfway. A later switch waits for it.
+            await Task { @MainActor in await self.followAppearance() }.value
         }
     }
 
